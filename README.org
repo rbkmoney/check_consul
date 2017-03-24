@@ -1,0 +1,33 @@
+#+TITLE: check_nagios
+
+* Overview
+  This is a python script designed to pull check statuses from consul nodes and translate them
+  into useful messages and return code for Nagios.
+  It was re-written with a base from [[https://github.com/ustream/nagios-consul-plugin][nagios-consul-plugin]].
+
+* Usage
+  #+BEGIN_SRC
+  Usage:
+    check_consul node <node> <dc> [--addr=ADDR] [--CheckID=CheckID | --ServiceName=ServiceName] [--verbose]
+
+  Arguments:
+    node  the consul node_name
+    dc    the consul datacenter
+
+  Options:
+    -h --help                  show this
+    -v --verbose               verbose output
+    --addr=ADDR                consul address [default: http://localhost:8500]
+    --CheckID=CheckID          CheckID matcher
+    --ServiceName=ServiceName  ServiceName matcher
+  #+END_SRC
+* Examples
+  #+BEGIN_SRC
+  $ ./check_consul node node1.dc1.example.com dc1 --addr http://node1.dc1.example.com:8500
+  passing: Serf Health Status (serfHealth)
+    Agent alive and reachable
+  passing: Service 'example1' check (service:registrator.service.consul:example1:6032:ipv6)
+    No output
+  passing: Service 'example2' check (service:registrator.service.consul:example2:6032:ipv6)
+    No output
+  #+END_SRC
