@@ -1,0 +1,83 @@
+#!/usr/bin/env python3
+"""
+Usage: 
+    check_consul node <node> <dc> [--addr=ADDR] [--CheckID=CheckID | --ServiceName=ServiceName] [--verbose]
+
+Arguments:
+    node  the consul node_name
+    dc    the consul datacenter
+
+Options:
+    -h --help                  show this
+    -v --verbose               verbose output
+    --addr=ADDR                consul address [default: http://localhost:8500]
+    --CheckID=CheckID          CheckID matcher
+    --ServiceName=ServiceName  ServiceName matcher
+"""
+
+from docopt import docopt
+import requests, json, traceback
+
+def incifless(cur, new):
+    return new if new > cur else cur
+
+def dump(it, verbose):
+    if verbose:
+        print(it)
+
+def make_node_url(argv):
+    url = "%(--addr)s/v1/health/node/%(<node>)s?dc=%(<dc>)s" % argv
+    return url
+
+def get_json_data(url, verbose):
+    dump("Url: " + url, verbose=verbose)
+    r = requests.get(url)
+    dump("Status code: " + str(r.status_code), verbose=verbose)
+    dump("Response: " + r.text, verbose=verbose)
+    r.raise_for_status()
+    return r.json()
+
+def add_message(messages, check):
+    messages.append("%(Status)s: %(Name)s (%(CheckID)s)" % check)
+    messages.append("  %s" % (check["Output"] if "Output" in check and check["Output"] else "No output"))
+    
+def process_checks(checks, argv):
+    retcode=0
+    messages=[]
+    statuses={'passing': 0, 'warning': 1, 'critical': 2, 'unknown': 3}
+    filters=[]
+    for field in ('CheckID', 'ServiceName'):
+        if argv['--' + field] is not None:
+            filters.append(lambda x: x[field] == argv['--'+field])
+
+    filtered = filter(lambda x: all(f(x) for f in filters), checks)
+
+    for check in filtered:
+        retcode = incifless(retcode, statuses.get(check['Status'], 3))
+        add_message(messages, check)
+
+    if len(messages) == 0:
+        retcode = incifless(retcode, 3)
+        messages.append("UNKNOWN: No checks are matching the filter!")
+    return retcode, messages
+
+if __name__ == '__main__':
+    try:
+        argv = docopt(__doc__)
+        verbose = True if argv['--verbose'] else False
+        dump("Arguments: " + str(argv), verbose=verbose)
+        if 'node' in argv:
+           json = get_json_data(make_node_url(argv), verbose=verbose)
+           if len(json) == 0:
+               print("UNKNOWN: There is no matching node!")
+               exit(3)
+        else:
+            print('UNKNOWN: no node command')
+            exit(3)
+        retcode, messages = process_checks(json, argv)
+        print('\n'.join(messages))
+        exit(retcode)
+    except SystemExit: raise
+    except:
+        traceback.print_exc()
+        exit(3)
