@@ -43,7 +43,7 @@ def add_message(messages, check):
     
 def process_checks(checks, argv):
     retcode=0
-    messages=[]
+    messages=([],[],[],[]) # OK, WARN, CRIT, UNKN
     statuses={'passing': 0, 'warning': 1, 'critical': 2, 'unknown': 3}
     filters=[]
     for field in ('CheckID', 'ServiceName'):
@@ -53,13 +53,20 @@ def process_checks(checks, argv):
     filtered = filter(lambda x: all(f(x) for f in filters), checks)
 
     for check in filtered:
-        retcode = incifless(retcode, statuses.get(check['Status'], 3))
-        add_message(messages, check)
+        statcode = statuses.get(check['Status'], 3)
+        retcode = incifless(retcode, statcode)
+        add_message(messages[statcode], check)
 
     if len(messages) == 0:
         retcode = incifless(retcode, 3)
-        messages.append("UNKNOWN: No checks are matching the filter!")
-    return retcode, messages
+        status_msg = "UNKNOWN: No checks are matching the filter!"
+    else:
+        status_msg = ['OK: {0} checks are passing',
+                      'WARNING: {0} checks are in warning state',
+                      'CRITICAL: {0} checks are in critical state',
+                      'UNKNOWN: {0} checks are in unknown state']\
+                      [retcode].format(len(messages[retcode]))
+    return retcode, status_msg, messages
 
 if __name__ == '__main__':
     try:
@@ -74,8 +81,12 @@ if __name__ == '__main__':
         else:
             print('UNKNOWN: no node command')
             exit(3)
-        retcode, messages = process_checks(json, argv)
-        print('\n'.join(messages))
+        retcode, status_msg, messages = process_checks(json, argv)
+        print(status_msg)
+        print('\n'.join(messages[3])
+              + '\n'.join(messages[2])
+              + '\n'.join(messages[1])
+              + '\n'.join(messages[0]))
         exit(retcode)
     except SystemExit: raise
     except:
