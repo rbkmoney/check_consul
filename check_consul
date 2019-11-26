@@ -47,9 +47,16 @@ def process_checks(checks, argv):
     messages=([],[],[],[]) # OK, WARN, CRIT, UNKN
     statuses={'passing': 0, 'warning': 1, 'critical': 2, 'unknown': 3}
     filters=[]
+    # Scoping hack
+    def add_filter(field, value):
+        dump("Filter: " + field + ' == ' + repr(val), verbose=verbose)
+        filters.append(lambda x: x[field] == value)
+        return
+
     for field in ('CheckID', 'ServiceName'):
-        if argv['--' + field] is not None:
-            filters.append(lambda x: x[field] == argv['--'+field])
+        val = argv['--' + field]
+        if val is not None:
+            add_filter(field, val)
 
     filtered = filter(lambda x: all(f(x) for f in filters), checks)
 
